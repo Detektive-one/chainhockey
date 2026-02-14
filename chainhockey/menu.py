@@ -16,6 +16,7 @@ class MenuState(Enum):
     PAUSE = "pause"
     OPTIONS = "options"
     GAME = "game"
+    SERVER_SELECT = "server_select"
     MULTIPLAYER = "multiplayer"
     CREATE_ROOM = "create_room"
     JOIN_ROOM = "join_room"
@@ -470,6 +471,86 @@ class OptionsMenu:
         for text_input in self.text_inputs:
             if 0 <= text_input.rect.y <= SCREEN_HEIGHT:
                 text_input.draw(self.screen)
+
+
+class ServerSelectionMenu:
+    """Menu for selecting server IP"""
+    
+    def __init__(self, screen, on_connect: Callable, on_back: Callable):
+        self.screen = screen
+        self.on_connect = on_connect
+        self.on_back = on_back
+        
+        center_x = SCREEN_WIDTH // 2
+        button_width = 200
+        button_height = 60
+        
+        # Server IP input
+        self.server_input = TextInput(
+            center_x - 150, SCREEN_HEIGHT // 2 - 30,
+            300, 50, initial_value="192.168.1.100"  # Example IP
+        )
+        
+        self.connect_button = Button(
+            center_x - button_width // 2, SCREEN_HEIGHT // 2 + 50,
+            button_width, button_height, "Connect",
+            callback=lambda: self._handle_connect()
+        )
+        
+        self.back_button = Button(
+            center_x - button_width // 2, SCREEN_HEIGHT // 2 + 130,
+            button_width, button_height, "Back",
+            callback=lambda: self.on_back()
+        )
+        
+        self.title_font = pygame.font.Font(None, 72)
+        self.label_font = pygame.font.Font(None, 24)
+        self.error_message = None
+    
+    def _handle_connect(self):
+        """Handle connect button click"""
+        server_ip = self.server_input.get_value().strip()
+        if server_ip:
+            self.on_connect(f"ws://{server_ip}:8765")
+        else:
+            self.error_message = "Please enter server IP"
+    
+    def set_error(self, message: str):
+        """Set error message"""
+        self.error_message = message
+    
+    def handle_event(self, event):
+        """Handle events"""
+        self.server_input.handle_event(event)
+        self.connect_button.handle_event(event)
+        self.back_button.handle_event(event)
+    
+    def draw(self):
+        """Draw the menu"""
+        self.screen.fill(BLACK)
+        
+        # Draw title
+        title_text = self.title_font.render("Server Selection", True, WHITE)
+        title_rect = title_text.get_rect(center=(SCREEN_WIDTH // 2, 150))
+        self.screen.blit(title_text, title_rect)
+        
+        # Draw label
+        label_text = self.label_font.render("Enter Server IP:", True, WHITE)
+        label_rect = label_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 80))
+        self.screen.blit(label_text, label_rect)
+        
+        # Draw input
+        self.server_input.draw(self.screen)
+        
+        # Draw error message
+        if self.error_message:
+            error_text = self.label_font.render(self.error_message, True, (255, 50, 50))
+            error_rect = error_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 20))
+            self.screen.blit(error_text, error_rect)
+        
+        # Draw buttons
+        self.connect_button.draw(self.screen)
+        self.back_button.draw(self.screen)
 
 
 class MultiplayerMenu:

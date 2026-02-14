@@ -8,7 +8,7 @@ import time
 from chainhockey.config_manager import ConfigManager
 from chainhockey.game import ChainHockeyGame, GameState
 from chainhockey.menu import (StartMenu, PauseMenu, OptionsMenu, MenuState,
-                             MultiplayerMenu, CreateRoomMenu, JoinRoomMenu)
+                             ServerSelectionMenu, MultiplayerMenu, CreateRoomMenu, JoinRoomMenu)
 from chainhockey.network_sync import NetworkSync
 from chainhockey.config import SCREEN_WIDTH, SCREEN_HEIGHT, FPS
 
@@ -35,6 +35,8 @@ def main():
     
     # Network sync (will be initialized when needed)
     network_sync = None
+    server_url = "ws://localhost:8765"  # Default
+    server_selection_menu = None
     multiplayer_menu = None
     create_room_menu = None
     join_room_menu = None
@@ -48,7 +50,7 @@ def main():
         """Handle creating a room"""
         nonlocal network_sync, create_room_menu, set_state
         if not network_sync:
-            network_sync = NetworkSync()
+            network_sync = NetworkSync(server_url)
             network_sync.start()
         
         # Wait for connection
@@ -80,7 +82,7 @@ def main():
         """Handle joining a room"""
         nonlocal network_sync, join_room_menu, set_state
         if not network_sync:
-            network_sync = NetworkSync()
+            network_sync = NetworkSync(server_url)
             network_sync.start()
         
         # Wait a bit for connection
@@ -106,6 +108,21 @@ def main():
         else:
             if join_room_menu:
                 join_room_menu.set_error("Not connected to server")
+    
+    def create_server_selection_menu():
+        nonlocal server_selection_menu
+        if not server_selection_menu:
+            server_selection_menu = ServerSelectionMenu(
+                screen,
+                on_connect=lambda url: handle_server_connect(url),
+                on_back=lambda: set_state(MenuState.START)
+            )
+        return server_selection_menu
+    
+    def handle_server_connect(url):
+        nonlocal server_url
+        server_url = url
+        set_state(MenuState.MULTIPLAYER)
     
     def create_multiplayer_menu():
         nonlocal multiplayer_menu
@@ -133,7 +150,7 @@ def main():
         on_start=lambda: set_state(MenuState.GAME),
         on_options=lambda: set_state(MenuState.OPTIONS),
         on_exit=lambda: set_state(MenuState.EXIT),
-        on_multiplayer=lambda: set_state(MenuState.MULTIPLAYER)
+        on_multiplayer=lambda: set_state(MenuState.SERVER_SELECT)
     )
     
     pause_menu = PauseMenu(
@@ -166,6 +183,9 @@ def main():
         # Handle state transitions
         if state == MenuState.START:
             current_menu = start_menu
+            game.state = GameState.MENU
+        elif state == MenuState.SERVER_SELECT:
+            current_menu = create_server_selection_menu()
             game.state = GameState.MENU
         elif state == MenuState.MULTIPLAYER:
             current_menu = create_multiplayer_menu()

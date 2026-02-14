@@ -1,6 +1,6 @@
 {
   "player1": {
-    "striker_radius": 50,
+    "striker_radius": 35.0,
     "striker_color": [
       220,
       50,
@@ -26,7 +26,7 @@
     "hammer_mass": 10.0
   },
   "player2": {
-    "striker_radius": 30.0,
+    "striker_radius": 19.0,
     "striker_color": [
       50,
       120,

@@ -9,3 +9,5 @@ __pycache__/
 *.pyzj
 
 config.json
+build/
+dist/
