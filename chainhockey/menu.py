@@ -192,7 +192,8 @@ class OptionsMenu:
         # Player 2 section
         self._create_player_section(2, SCREEN_WIDTH // 2 + 50, 100)
         
-        # Global physics section
+        # Calculate where global section should be (after both player sections)
+        # Player sections go down to about y=600, so start global at 650
         self._create_global_section()
     
     def _create_player_section(self, player_num, x, y):
@@ -210,9 +211,9 @@ class OptionsMenu:
         y_offset = y + 50
         
         # Striker section
-        striker_label = Label(x, y_offset, "Striker", 28, GRAY)
+        striker_label = Label(x, y_offset - self.scroll_offset, "Striker", 28, GRAY)
         self.labels.append(striker_label)
-        y_offset += 35
+        y_offset += 50  # More space between label and first control
         
         # Striker radius
         self._add_slider(x, y_offset, 200, 5, 50, player_config.striker_radius, 1.0,
@@ -232,7 +233,7 @@ class OptionsMenu:
         # Striker color RGB
         color_label = Label(x, y_offset - self.scroll_offset, "Color (RGB):", 24, WHITE)
         self.labels.append(color_label)
-        y_offset += 30
+        y_offset += 40  # More space between label and sliders
         
         self._add_color_sliders(x, y_offset, player_config, 'striker_color')
         y_offset += 100
@@ -240,7 +241,7 @@ class OptionsMenu:
         # Chain section
         chain_label = Label(x, y_offset - self.scroll_offset, "Chain", 28, GRAY)
         self.labels.append(chain_label)
-        y_offset += 35
+        y_offset += 50  # More space between label and first control
         
         # Chain segments
         self._add_slider(x, y_offset, 200, 3, 30, player_config.chain_segments, 1,
@@ -265,7 +266,7 @@ class OptionsMenu:
         # Chain color RGB
         color_label = Label(x, y_offset - self.scroll_offset, "Color (RGB):", 24, WHITE)
         self.labels.append(color_label)
-        y_offset += 30
+        y_offset += 40  # More space between label and sliders
         
         self._add_color_sliders(x, y_offset, player_config, 'chain_color')
         y_offset += 100
@@ -273,7 +274,7 @@ class OptionsMenu:
         # Hammer section
         hammer_label = Label(x, y_offset - self.scroll_offset, "Hammer", 28, GRAY)
         self.labels.append(hammer_label)
-        y_offset += 35
+        y_offset += 50  # More space between label and first control
         
         # Hammer radius
         self._add_slider(x, y_offset, 200, 10, 60, player_config.hammer_radius, 1.0,
@@ -288,18 +289,20 @@ class OptionsMenu:
         # Hammer color RGB
         color_label = Label(x, y_offset - self.scroll_offset, "Color (RGB):", 24, WHITE)
         self.labels.append(color_label)
-        y_offset += 30
+        y_offset += 40  # More space between label and sliders
         
         self._add_color_sliders(x, y_offset, player_config, 'hammer_color')
     
     def _create_global_section(self):
         """Create UI for global physics settings"""
+        # Position global section at the bottom, after both player sections
+        # Each player section is about 600 pixels tall, so start global at 650
         x = SCREEN_WIDTH // 2 - 150
-        y = 500 - self.scroll_offset
+        y = 650 - self.scroll_offset
         
         global_label = Label(x, y, "Global Physics", 28, GRAY)
         self.labels.append(global_label)
-        y += 35
+        y += 50  # More space between label and first control
         
         # Gravity
         self._add_slider(x, y, 300, -1.0, 1.0, self.config.gravity, 0.01,

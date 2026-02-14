@@ -59,6 +59,8 @@ class ChainHockeyGame:
         self.winner = None
         self.start_time = 0
         self.game_duration_ms = 0
+        self.paused_time = 0
+        self.pause_start_time = 0
         self.player1_min_x = 0
         self.player1_max_x = 0
         self.player2_min_x = 0
@@ -131,6 +133,8 @@ class ChainHockeyGame:
         self.winner = None
         self.start_time = pygame.time.get_ticks()
         self.game_duration_ms = self.config.game_duration_seconds * 1000
+        self.paused_time = 0
+        self.pause_start_time = 0
     
     def reset_game(self):
         """Reset game state without reinitializing display"""
@@ -333,9 +337,27 @@ class ChainHockeyGame:
     
     def get_time_remaining(self):
         """Get remaining time in seconds"""
-        elapsed_time = pygame.time.get_ticks() - self.start_time
+        if self.state == GameState.PAUSED:
+            # When paused, use the time from when we paused
+            elapsed_time = (self.pause_start_time - self.start_time) - self.paused_time
+        else:
+            # When playing, account for paused time
+            elapsed_time = (pygame.time.get_ticks() - self.start_time) - self.paused_time
         remaining_ms = max(0, self.game_duration_ms - elapsed_time)
         return remaining_ms // 1000
+    
+    def pause_timer(self):
+        """Called when game is paused"""
+        if self.pause_start_time == 0:  # Only if not already paused
+            self.pause_start_time = pygame.time.get_ticks()
+    
+    def resume_timer(self):
+        """Called when game is resumed"""
+        if self.pause_start_time > 0:
+            # Add the time we were paused to the total paused time
+            pause_duration = pygame.time.get_ticks() - self.pause_start_time
+            self.paused_time += pause_duration
+            self.pause_start_time = 0
     
     def format_time(self, seconds):
         """Format time as MM:SS"""

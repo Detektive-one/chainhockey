@@ -75,10 +75,22 @@ def main():
             game.state = GameState.MENU
         elif state == MenuState.GAME:
             if game.state != GameState.PLAYING:
-                game.start_game()
-                game.state = GameState.PLAYING
+                if game.state == GameState.PAUSED:
+                    # Resuming from pause - don't reset game, just resume timer
+                    game.resume_timer()
+                    # Clear paused screen
+                    if hasattr(game, '_paused_screen'):
+                        del game._paused_screen
+                    game.state = GameState.PLAYING
+                else:
+                    # Starting new game
+                    game.start_game()
+                    game.state = GameState.PLAYING
             current_menu = None
         elif state == MenuState.PAUSE:
+            if game.state == GameState.PLAYING:
+                # Just paused
+                game.pause_timer()
             game.state = GameState.PAUSED
             current_menu = pause_menu
         elif state == MenuState.OPTIONS:
@@ -130,13 +142,22 @@ def main():
         # Draw
         if current_menu:
             if isinstance(current_menu, PauseMenu):
-                # Draw game first, then pause menu overlay
-                game.draw_game()
+                # Draw game first (frozen state), then pause menu overlay
+                # Store the game screen when first paused to avoid redrawing
+                if not hasattr(game, '_paused_screen'):
+                    game.draw_game()
+                    game._paused_screen = game.get_screen().copy()
+                # Draw the stored screen
+                game.get_screen().blit(game._paused_screen, (0, 0))
                 current_menu.draw(game.get_screen())
             else:
                 current_menu.draw()
+                if hasattr(game, '_paused_screen'):
+                    del game._paused_screen
         else:
             game.draw_game()
+            if hasattr(game, '_paused_screen'):
+                del game._paused_screen
         
         # Update display
         pygame.display.flip()

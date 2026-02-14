@@ -19,7 +19,7 @@
     "chain_damping": 0.8,
     "hammer_radius": 35,
     "hammer_color": [
-      255,
+      99,
       140,
       50
     ],
