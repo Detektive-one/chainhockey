@@ -142,6 +142,10 @@ class OptionsMenu:
         self.on_back = on_back
         self.config = config_manager.get_config()
         
+        # Scroll offset for scrollable menu
+        self.scroll_offset = 0
+        self.scroll_speed = 30
+        
         # UI elements
         self.buttons = []
         self.sliders = []
@@ -196,6 +200,9 @@ class OptionsMenu:
         player_config = self.config.player1 if player_num == 1 else self.config.player2
         player_name = f"Player {player_num}"
         
+        # Apply scroll offset
+        y = y - self.scroll_offset
+        
         # Player title
         title = Label(x, y, player_name, 36, WHITE)
         self.labels.append(title)
@@ -223,7 +230,7 @@ class OptionsMenu:
         y_offset += 50
         
         # Striker color RGB
-        color_label = Label(x, y_offset, "Color (RGB):", 24, WHITE)
+        color_label = Label(x, y_offset - self.scroll_offset, "Color (RGB):", 24, WHITE)
         self.labels.append(color_label)
         y_offset += 30
         
@@ -231,7 +238,7 @@ class OptionsMenu:
         y_offset += 100
         
         # Chain section
-        chain_label = Label(x, y_offset, "Chain", 28, GRAY)
+        chain_label = Label(x, y_offset - self.scroll_offset, "Chain", 28, GRAY)
         self.labels.append(chain_label)
         y_offset += 35
         
@@ -256,7 +263,7 @@ class OptionsMenu:
         y_offset += 50
         
         # Chain color RGB
-        color_label = Label(x, y_offset, "Color (RGB):", 24, WHITE)
+        color_label = Label(x, y_offset - self.scroll_offset, "Color (RGB):", 24, WHITE)
         self.labels.append(color_label)
         y_offset += 30
         
@@ -264,7 +271,7 @@ class OptionsMenu:
         y_offset += 100
         
         # Hammer section
-        hammer_label = Label(x, y_offset, "Hammer", 28, GRAY)
+        hammer_label = Label(x, y_offset - self.scroll_offset, "Hammer", 28, GRAY)
         self.labels.append(hammer_label)
         y_offset += 35
         
@@ -279,7 +286,7 @@ class OptionsMenu:
         y_offset += 50
         
         # Hammer color RGB
-        color_label = Label(x, y_offset, "Color (RGB):", 24, WHITE)
+        color_label = Label(x, y_offset - self.scroll_offset, "Color (RGB):", 24, WHITE)
         self.labels.append(color_label)
         y_offset += 30
         
@@ -288,7 +295,7 @@ class OptionsMenu:
     def _create_global_section(self):
         """Create UI for global physics settings"""
         x = SCREEN_WIDTH // 2 - 150
-        y = 500
+        y = 500 - self.scroll_offset
         
         global_label = Label(x, y, "Global Physics", 28, GRAY)
         self.labels.append(global_label)
@@ -325,12 +332,17 @@ class OptionsMenu:
     
     def _add_slider(self, x, y, width, min_val, max_val, initial_val, step, label, callback):
         """Add a slider to the UI"""
+        # Apply scroll offset
+        y = y - self.scroll_offset
         slider = Slider(x, y, width, min_val, max_val, initial_val, step, label, callback)
         self.sliders.append(slider)
     
     def _add_color_sliders(self, x, y, player_config, color_attr):
         """Add RGB color sliders"""
         current_color = getattr(player_config, color_attr)
+        
+        # Apply scroll offset
+        y = y - self.scroll_offset
         
         # R slider
         r_slider = Slider(x, y, 200, 0, 255, current_color[0], 1, "R",
@@ -379,6 +391,33 @@ class OptionsMenu:
     
     def handle_event(self, event):
         """Handle events"""
+        # Handle scrolling
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_UP or event.key == pygame.K_w:
+                self.scroll_offset = max(0, self.scroll_offset - self.scroll_speed)
+                # Recreate UI with new scroll offset
+                self.buttons.clear()
+                self.sliders.clear()
+                self.text_inputs.clear()
+                self.labels.clear()
+                self._create_ui()
+            elif event.key == pygame.K_DOWN or event.key == pygame.K_s:
+                self.scroll_offset += self.scroll_speed
+                # Recreate UI with new scroll offset
+                self.buttons.clear()
+                self.sliders.clear()
+                self.text_inputs.clear()
+                self.labels.clear()
+                self._create_ui()
+        elif event.type == pygame.MOUSEWHEEL:
+            self.scroll_offset = max(0, self.scroll_offset - event.y * self.scroll_speed)
+            # Recreate UI with new scroll offset
+            self.buttons.clear()
+            self.sliders.clear()
+            self.text_inputs.clear()
+            self.labels.clear()
+            self._create_ui()
+        
         for button in self.buttons:
             button.handle_event(event)
         for slider in self.sliders:
@@ -390,19 +429,27 @@ class OptionsMenu:
         """Draw the options menu"""
         self.screen.fill(BLACK)
         
-        # Draw labels
-        for label in self.labels:
-            label.draw(self.screen)
+        # Draw scroll instructions
+        font = pygame.font.Font(None, 24)
+        scroll_text = font.render("Use Mouse Wheel, UP/DOWN, or W/S to scroll", True, GRAY)
+        self.screen.blit(scroll_text, (SCREEN_WIDTH // 2 - 150, SCREEN_HEIGHT - 30))
         
-        # Draw buttons
+        # Draw labels (only if visible on screen)
+        for label in self.labels:
+            if 0 <= label.y <= SCREEN_HEIGHT:
+                label.draw(self.screen)
+        
+        # Draw buttons (always visible at bottom)
         for button in self.buttons:
             button.draw(self.screen)
         
-        # Draw sliders
+        # Draw sliders (only if visible on screen)
         for slider in self.sliders:
-            slider.draw(self.screen)
+            if 0 <= slider.rect.y <= SCREEN_HEIGHT:
+                slider.draw(self.screen)
         
-        # Draw text inputs
+        # Draw text inputs (only if visible on screen)
         for text_input in self.text_inputs:
-            text_input.draw(self.screen)
+            if 0 <= text_input.rect.y <= SCREEN_HEIGHT:
+                text_input.draw(self.screen)
 

@@ -96,12 +96,25 @@ def main():
                 running = False
                 break
             
-            # Handle game events
+            # Handle game events (only when playing)
             if game.state == GameState.PLAYING:
-                game.handle_events()
-                # Check if game wants to pause
-                if game.state == GameState.PAUSED:
+                # Handle ESC key for pause
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                    game.state = GameState.PAUSED
                     set_state(MenuState.PAUSE)
+                    continue  # Don't process this event further
+                # Handle Space key
+                elif event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+                    if game.game_over:
+                        game.reset_game()
+                    elif game.puck:
+                        game.puck.reset()
+                    continue  # Don't process this event further
+                # Handle ESC after game over
+                if game.game_over and event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                    game.state = GameState.MENU
+                    set_state(MenuState.START)
+                    continue  # Don't process this event further
             
             # Handle menu events
             if current_menu:

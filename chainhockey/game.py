@@ -144,11 +144,13 @@ class ChainHockeyGame:
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     if self.state == GameState.PLAYING:
+                        # Pause the game
                         self.state = GameState.PAUSED
-                    elif self.state == GameState.PAUSED:
+                        return True  # Signal that pause was triggered
+                    elif self.game_over:
+                        # After game over, ESC returns to menu
                         self.state = GameState.MENU
-                    else:
-                        self.running = False
+                        return True
                 elif event.key == pygame.K_SPACE:
                     if self.state == GameState.PLAYING:
                         if self.game_over:
@@ -158,6 +160,7 @@ class ChainHockeyGame:
                             # Reset puck position on spacebar
                             if self.puck:
                                 self.puck.reset()
+        return False
     
     def check_win_condition(self):
         """Check if game should end (5 minutes or 10 goals)"""

@@ -1,0 +1,62 @@
+{
+  "player1": {
+    "striker_radius": 50,
+    "striker_color": [
+      220,
+      50,
+      50
+    ],
+    "striker_mass": 5.0,
+    "striker_speed": 5.0,
+    "chain_segments": 10,
+    "segment_length": 15,
+    "chain_color": [
+      50,
+      200,
+      200
+    ],
+    "chain_thickness": 3,
+    "chain_damping": 0.8,
+    "hammer_radius": 35,
+    "hammer_color": [
+      255,
+      140,
+      50
+    ],
+    "hammer_mass": 10.0
+  },
+  "player2": {
+    "striker_radius": 30.0,
+    "striker_color": [
+      50,
+      120,
+      69
+    ],
+    "striker_mass": 8.5,
+    "striker_speed": 4.0,
+    "chain_segments": 10,
+    "segment_length": 15,
+    "chain_color": [
+      200,
+      150,
+      255
+    ],
+    "chain_thickness": 3,
+    "chain_damping": 0.8,
+    "hammer_radius": 35,
+    "hammer_color": [
+      255,
+      140,
+      50
+    ],
+    "hammer_mass": 10.0
+  },
+  "global": {
+    "gravity": 0.0,
+    "constraint_iterations": 15,
+    "puck_friction": 0.985,
+    "puck_wall_bounce": 0.85,
+    "game_duration_seconds": 300,
+    "max_goals": 10
+  }
+}
