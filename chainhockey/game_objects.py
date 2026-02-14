@@ -7,14 +7,15 @@ from .config import (
     STRIKER_RADIUS, STRIKER_COLOR, HAMMER_RADIUS, HAMMER_COLOR,
     PUCK_RADIUS, PUCK_COLOR, SCREEN_WIDTH, SCREEN_HEIGHT,
     GOAL_WIDTH, GOAL_HEIGHT, GOAL_Y, PUCK_FRICTION, PUCK_WALL_BOUNCE,
-    WHITE
+    WHITE, STRIKER_SPEED, CENTER_LINE_X
 )
 
 
 class Striker:
-    """Player-controlled striker that follows the mouse"""
+    """Player-controlled striker that can be controlled by mouse or keyboard"""
     
-    def __init__(self, x, y, radius=STRIKER_RADIUS, color=STRIKER_COLOR):
+    def __init__(self, x, y, radius=STRIKER_RADIUS, color=STRIKER_COLOR, 
+                 min_x=None, max_x=None, is_player1=True):
         self.x = x
         self.y = y
         self.radius = radius
@@ -23,12 +24,37 @@ class Striker:
         self.vel_y = 0
         self.prev_x = x
         self.prev_y = y
+        self.min_x = min_x if min_x is not None else self.radius
+        self.max_x = max_x if max_x is not None else SCREEN_WIDTH - self.radius
+        self.is_player1 = is_player1
     
-    def update_position(self, mouse_x, mouse_y):
+    def update_position_mouse(self, mouse_x, mouse_y):
         """Update striker position to follow mouse, keeping it within bounds"""
-        # Keep striker within screen boundaries
-        self.x = max(self.radius, min(mouse_x, SCREEN_WIDTH - self.radius))
+        # Keep striker within screen boundaries and player's half
+        self.x = max(self.min_x, min(mouse_x, self.max_x))
         self.y = max(self.radius, min(mouse_y, SCREEN_HEIGHT - self.radius))
+    
+    def update_position_keyboard(self, keys):
+        """Update striker position based on keyboard input (WASD)"""
+        dx = 0
+        dy = 0
+        
+        if keys[pygame.K_w]:
+            dy -= STRIKER_SPEED
+        if keys[pygame.K_s]:
+            dy += STRIKER_SPEED
+        if keys[pygame.K_a]:
+            dx -= STRIKER_SPEED
+        if keys[pygame.K_d]:
+            dx += STRIKER_SPEED
+        
+        # Update position
+        new_x = self.x + dx
+        new_y = self.y + dy
+        
+        # Constrain to boundaries and player's half
+        self.x = max(self.min_x, min(new_x, self.max_x))
+        self.y = max(self.radius, min(new_y, SCREEN_HEIGHT - self.radius))
     
     def draw(self, screen):
         """Draw the striker on the screen"""
@@ -40,7 +66,7 @@ class Striker:
 class Hammer:
     """Hammer attached to the end of the chain"""
     
-    def __init__(self, x, y, radius=HAMMER_RADIUS, color=HAMMER_COLOR):
+    def __init__(self, x, y, radius=HAMMER_RADIUS, color=HAMMER_COLOR, min_x=None, max_x=None):
         self.x = x
         self.y = y
         self.radius = radius
@@ -49,13 +75,18 @@ class Hammer:
         self.vel_y = 0
         self.prev_x = x
         self.prev_y = y
+        self.min_x = min_x if min_x is not None else self.radius
+        self.max_x = max_x if max_x is not None else SCREEN_WIDTH - self.radius
     
     def update_position(self, x, y):
         """Update hammer position based on chain and calculate velocity"""
         self.prev_x = self.x
         self.prev_y = self.y
-        self.x = x
-        self.y = y
+        
+        # Constrain hammer to player's half
+        self.x = max(self.min_x, min(x, self.max_x))
+        self.y = max(self.radius, min(y, SCREEN_HEIGHT - self.radius))
+        
         # Calculate velocity from position change
         self.vel_x = self.x - self.prev_x
         self.vel_y = self.y - self.prev_y

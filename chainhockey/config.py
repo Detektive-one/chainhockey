@@ -37,6 +37,8 @@ CHAIN_LENGTH = 30
 CHAIN_SEGMENTS = 10
 SEGMENT_LENGTH = 15
 CHAIN_COLOR = CYAN
+CHAIN1_COLOR = CYAN  # Player 1 chain color
+CHAIN2_COLOR = (200, 150, 255)  # Player 2 chain color (purple)
 CHAIN_THICKNESS = 3
 
 # Physics

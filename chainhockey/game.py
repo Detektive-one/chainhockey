@@ -8,7 +8,10 @@ from .config import (
     SCREEN_WIDTH, SCREEN_HEIGHT, FPS, BLACK, WHITE, GRAY,
     GOAL_COLOR, GOAL_LEFT_X, GOAL_RIGHT_X, GOAL_Y, GOAL_WIDTH, GOAL_HEIGHT,
     STRIKER_RADIUS, STRIKER_COLOR, HAMMER_RADIUS, HAMMER_COLOR,
-    PUCK_RADIUS, PUCK_COLOR, PUCK_MASS, HAMMER_MASS, STRIKER_MASS
+    PUCK_RADIUS, PUCK_COLOR, PUCK_MASS, HAMMER_MASS, STRIKER_MASS,
+    PLAYER1_COLOR, PLAYER2_COLOR, PLAYER1_SPAWN_X, PLAYER2_SPAWN_X,
+    PLAYER_SPAWN_Y, CENTER_LINE_X, GAME_DURATION_SECONDS, MAX_GOALS,
+    CHAIN1_COLOR, CHAIN2_COLOR
 )
 from .chain import Chain
 from .game_objects import Striker, Hammer, Puck
@@ -26,23 +29,46 @@ class ChainHockeyGame:
         # Clock for controlling frame rate
         self.clock = pygame.time.Clock()
         
-        # Create game objects
-        self.striker = Striker(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2, 
-                              STRIKER_RADIUS, STRIKER_COLOR)
-        self.striker.vel_x = 0
-        self.striker.vel_y = 0
-        self.striker.prev_x = self.striker.x
-        self.striker.prev_y = self.striker.y
+        # Player boundaries
+        # Player 1 (right side) can move from center to right edge
+        player1_min_x = CENTER_LINE_X + STRIKER_RADIUS
+        player1_max_x = SCREEN_WIDTH - STRIKER_RADIUS
+        # Player 2 (left side) can move from left edge to center
+        player2_min_x = STRIKER_RADIUS
+        player2_max_x = CENTER_LINE_X - STRIKER_RADIUS
         
-        # Create chain
-        self.chain = Chain(self.striker.x, self.striker.y)
+        # Create Player 1 (right side, mouse controlled)
+        self.striker1 = Striker(PLAYER1_SPAWN_X, PLAYER_SPAWN_Y, 
+                               STRIKER_RADIUS, PLAYER1_COLOR,
+                               player1_min_x, player1_max_x, is_player1=True)
+        self.striker1.vel_x = 0
+        self.striker1.vel_y = 0
+        self.striker1.prev_x = self.striker1.x
+        self.striker1.prev_y = self.striker1.y
         
-        # Create hammer
-        hammer_x, hammer_y = self.chain.get_hammer_position()
-        self.hammer = Hammer(hammer_x, hammer_y, HAMMER_RADIUS, HAMMER_COLOR)
+        # Create Player 2 (left side, WASD controlled)
+        self.striker2 = Striker(PLAYER2_SPAWN_X, PLAYER_SPAWN_Y,
+                               STRIKER_RADIUS, PLAYER2_COLOR,
+                               player2_min_x, player2_max_x, is_player1=False)
+        self.striker2.vel_x = 0
+        self.striker2.vel_y = 0
+        self.striker2.prev_x = self.striker2.x
+        self.striker2.prev_y = self.striker2.y
+        
+        # Create chains with different colors
+        self.chain1 = Chain(self.striker1.x, self.striker1.y, CHAIN1_COLOR)
+        self.chain2 = Chain(self.striker2.x, self.striker2.y, CHAIN2_COLOR)
+        
+        # Create hammers
+        hammer1_x, hammer1_y = self.chain1.get_hammer_position()
+        self.hammer1 = Hammer(hammer1_x, hammer1_y, HAMMER_RADIUS, HAMMER_COLOR,
+                              player1_min_x, player1_max_x)
+        hammer2_x, hammer2_y = self.chain2.get_hammer_position()
+        self.hammer2 = Hammer(hammer2_x, hammer2_y, HAMMER_RADIUS, HAMMER_COLOR,
+                              player2_min_x, player2_max_x)
         
         # Create puck
-        self.puck = Puck(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 100, 
+        self.puck = Puck(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2, 
                         PUCK_RADIUS, PUCK_COLOR)
         
         # Score tracking
@@ -53,6 +79,58 @@ class ChainHockeyGame:
         # Game state
         self.running = True
         self.dt = 1.0  # Delta time for physics
+        self.game_over = False
+        self.winner = None
+        
+        # Timer
+        self.start_time = pygame.time.get_ticks()
+        self.game_duration_ms = GAME_DURATION_SECONDS * 1000
+        
+        # Store boundaries for chain updates
+        self.player1_min_x = player1_min_x
+        self.player1_max_x = player1_max_x
+        self.player2_min_x = player2_min_x
+        self.player2_max_x = player2_max_x
+    
+    def reset_game(self):
+        """Reset game state without reinitializing display"""
+        # Reset strikers to spawn positions
+        self.striker1.x = PLAYER1_SPAWN_X
+        self.striker1.y = PLAYER_SPAWN_Y
+        self.striker1.vel_x = 0
+        self.striker1.vel_y = 0
+        self.striker1.prev_x = self.striker1.x
+        self.striker1.prev_y = self.striker1.y
+        
+        self.striker2.x = PLAYER2_SPAWN_X
+        self.striker2.y = PLAYER_SPAWN_Y
+        self.striker2.vel_x = 0
+        self.striker2.vel_y = 0
+        self.striker2.prev_x = self.striker2.x
+        self.striker2.prev_y = self.striker2.y
+        
+        # Reset chains
+        self.chain1 = Chain(self.striker1.x, self.striker1.y, CHAIN1_COLOR)
+        self.chain2 = Chain(self.striker2.x, self.striker2.y, CHAIN2_COLOR)
+        
+        # Reset hammers
+        hammer1_x, hammer1_y = self.chain1.get_hammer_position()
+        self.hammer1 = Hammer(hammer1_x, hammer1_y, HAMMER_RADIUS, HAMMER_COLOR,
+                              self.player1_min_x, self.player1_max_x)
+        hammer2_x, hammer2_y = self.chain2.get_hammer_position()
+        self.hammer2 = Hammer(hammer2_x, hammer2_y, HAMMER_RADIUS, HAMMER_COLOR,
+                              self.player2_min_x, self.player2_max_x)
+        
+        # Reset puck
+        self.puck.reset()
+        
+        # Reset scores and game state
+        self.player1_score = 0
+        self.player2_score = 0
+        self.goal_delay = 0
+        self.game_over = False
+        self.winner = None
+        self.start_time = pygame.time.get_ticks()
     
     def handle_events(self):
         """Handle pygame events"""
@@ -63,27 +141,73 @@ class ChainHockeyGame:
                 if event.key == pygame.K_ESCAPE:
                     self.running = False
                 elif event.key == pygame.K_SPACE:
-                    # Reset puck position on spacebar
-                    self.puck.reset()
+                    if self.game_over:
+                        # Restart game
+                        self.reset_game()
+                    else:
+                        # Reset puck position on spacebar
+                        self.puck.reset()
+    
+    def check_win_condition(self):
+        """Check if game should end (5 minutes or 10 goals)"""
+        if self.game_over:
+            return
+        
+        # Check goal limit
+        if self.player1_score >= MAX_GOALS:
+            self.game_over = True
+            self.winner = 1
+            return
+        if self.player2_score >= MAX_GOALS:
+            self.game_over = True
+            self.winner = 2
+            return
+        
+        # Check time limit
+        elapsed_time = pygame.time.get_ticks() - self.start_time
+        if elapsed_time >= self.game_duration_ms:
+            self.game_over = True
+            # Winner is player with more goals, or None if tie
+            if self.player1_score > self.player2_score:
+                self.winner = 1
+            elif self.player2_score > self.player1_score:
+                self.winner = 2
+            else:
+                self.winner = 0  # Tie
+            return
     
     def update(self):
         """Update game state"""
-        # Get mouse position and update striker
-        mouse_x, mouse_y = pygame.mouse.get_pos()
+        if self.game_over:
+            return
         
-        # Calculate striker velocity before updating position
-        self.striker.prev_x = self.striker.x
-        self.striker.prev_y = self.striker.y
-        self.striker.update_position(mouse_x, mouse_y)
-        self.striker.vel_x = self.striker.x - self.striker.prev_x
-        self.striker.vel_y = self.striker.y - self.striker.prev_y
+        # Get mouse position and update Player 1 (mouse controlled)
+        mouse_x, mouse_y = pygame.mouse.get_pos()
+        self.striker1.prev_x = self.striker1.x
+        self.striker1.prev_y = self.striker1.y
+        self.striker1.update_position_mouse(mouse_x, mouse_y)
+        self.striker1.vel_x = self.striker1.x - self.striker1.prev_x
+        self.striker1.vel_y = self.striker1.y - self.striker1.prev_y
+        
+        # Update Player 2 (WASD controlled)
+        keys = pygame.key.get_pressed()
+        self.striker2.prev_x = self.striker2.x
+        self.striker2.prev_y = self.striker2.y
+        self.striker2.update_position_keyboard(keys)
+        self.striker2.vel_x = self.striker2.x - self.striker2.prev_x
+        self.striker2.vel_y = self.striker2.y - self.striker2.prev_y
         
         # Update chain physics
-        self.chain.update(self.dt, self.striker.x, self.striker.y, self.striker.radius)
+        self.chain1.update(self.dt, self.striker1.x, self.striker1.y, 
+                          self.striker1.radius, self.player1_min_x, self.player1_max_x)
+        self.chain2.update(self.dt, self.striker2.x, self.striker2.y,
+                          self.striker2.radius, self.player2_min_x, self.player2_max_x)
         
-        # Update hammer position based on chain
-        hammer_x, hammer_y = self.chain.get_hammer_position()
-        self.hammer.update_position(hammer_x, hammer_y)
+        # Update hammer positions based on chains
+        hammer1_x, hammer1_y = self.chain1.get_hammer_position()
+        self.hammer1.update_position(hammer1_x, hammer1_y)
+        hammer2_x, hammer2_y = self.chain2.get_hammer_position()
+        self.hammer2.update_position(hammer2_x, hammer2_y)
         
         # Update puck physics and check for goals
         if self.goal_delay > 0:
@@ -103,44 +227,95 @@ class ChainHockeyGame:
         
         # Handle collisions
         self.handle_collisions()
+        
+        # Check win conditions
+        self.check_win_condition()
     
     def handle_collisions(self):
         """Handle collisions between game objects"""
-        # Collision detection: Puck vs Hammer
+        # Collision detection: Puck vs Hammer 1
         if check_collision_circle(self.puck.x, self.puck.y, self.puck.radius, 
-                                 self.hammer.x, self.hammer.y, self.hammer.radius):
+                                 self.hammer1.x, self.hammer1.y, self.hammer1.radius):
             # Separate objects first
             self.puck.x, self.puck.y, hammer_x, hammer_y = separate_circles(
                 self.puck.x, self.puck.y, self.puck.radius,
-                self.hammer.x, self.hammer.y, self.hammer.radius
+                self.hammer1.x, self.hammer1.y, self.hammer1.radius
             )
             
             # Resolve collision with momentum transfer
             self.puck.vel_x, self.puck.vel_y, _, _ = resolve_collision(
                 self.puck.x, self.puck.y, self.puck.vel_x, self.puck.vel_y, 
                 self.puck.radius, PUCK_MASS,
-                self.hammer.x, self.hammer.y, self.hammer.vel_x, self.hammer.vel_y, 
-                self.hammer.radius, HAMMER_MASS,
+                self.hammer1.x, self.hammer1.y, self.hammer1.vel_x, self.hammer1.vel_y, 
+                self.hammer1.radius, HAMMER_MASS,
                 restitution=1.2  # High restitution for hammer (power hit)
             )
         
-        # Collision detection: Puck vs Striker
+        # Collision detection: Puck vs Hammer 2
         if check_collision_circle(self.puck.x, self.puck.y, self.puck.radius, 
-                                 self.striker.x, self.striker.y, self.striker.radius):
+                                 self.hammer2.x, self.hammer2.y, self.hammer2.radius):
             # Separate objects first
-            self.puck.x, self.puck.y, self.striker.x, self.striker.y = separate_circles(
+            self.puck.x, self.puck.y, hammer_x, hammer_y = separate_circles(
                 self.puck.x, self.puck.y, self.puck.radius,
-                self.striker.x, self.striker.y, self.striker.radius
+                self.hammer2.x, self.hammer2.y, self.hammer2.radius
             )
             
             # Resolve collision with momentum transfer
-            self.puck.vel_x, self.puck.vel_y, self.striker.vel_x, self.striker.vel_y = resolve_collision(
+            self.puck.vel_x, self.puck.vel_y, _, _ = resolve_collision(
                 self.puck.x, self.puck.y, self.puck.vel_x, self.puck.vel_y, 
                 self.puck.radius, PUCK_MASS,
-                self.striker.x, self.striker.y, self.striker.vel_x, self.striker.vel_y, 
-                self.striker.radius, STRIKER_MASS,
+                self.hammer2.x, self.hammer2.y, self.hammer2.vel_x, self.hammer2.vel_y, 
+                self.hammer2.radius, HAMMER_MASS,
+                restitution=1.2  # High restitution for hammer (power hit)
+            )
+        
+        # Collision detection: Puck vs Striker 1
+        if check_collision_circle(self.puck.x, self.puck.y, self.puck.radius, 
+                                 self.striker1.x, self.striker1.y, self.striker1.radius):
+            # Separate objects first
+            self.puck.x, self.puck.y, self.striker1.x, self.striker1.y = separate_circles(
+                self.puck.x, self.puck.y, self.puck.radius,
+                self.striker1.x, self.striker1.y, self.striker1.radius
+            )
+            
+            # Resolve collision with momentum transfer
+            self.puck.vel_x, self.puck.vel_y, self.striker1.vel_x, self.striker1.vel_y = resolve_collision(
+                self.puck.x, self.puck.y, self.puck.vel_x, self.puck.vel_y, 
+                self.puck.radius, PUCK_MASS,
+                self.striker1.x, self.striker1.y, self.striker1.vel_x, self.striker1.vel_y, 
+                self.striker1.radius, STRIKER_MASS,
                 restitution=0.4  # Low restitution for striker (controlled hit)
             )
+        
+        # Collision detection: Puck vs Striker 2
+        if check_collision_circle(self.puck.x, self.puck.y, self.puck.radius, 
+                                 self.striker2.x, self.striker2.y, self.striker2.radius):
+            # Separate objects first
+            self.puck.x, self.puck.y, self.striker2.x, self.striker2.y = separate_circles(
+                self.puck.x, self.puck.y, self.puck.radius,
+                self.striker2.x, self.striker2.y, self.striker2.radius
+            )
+            
+            # Resolve collision with momentum transfer
+            self.puck.vel_x, self.puck.vel_y, self.striker2.vel_x, self.striker2.vel_y = resolve_collision(
+                self.puck.x, self.puck.y, self.puck.vel_x, self.puck.vel_y, 
+                self.puck.radius, PUCK_MASS,
+                self.striker2.x, self.striker2.y, self.striker2.vel_x, self.striker2.vel_y, 
+                self.striker2.radius, STRIKER_MASS,
+                restitution=0.4  # Low restitution for striker (controlled hit)
+            )
+    
+    def get_time_remaining(self):
+        """Get remaining time in seconds"""
+        elapsed_time = pygame.time.get_ticks() - self.start_time
+        remaining_ms = max(0, self.game_duration_ms - elapsed_time)
+        return remaining_ms // 1000
+    
+    def format_time(self, seconds):
+        """Format time as MM:SS"""
+        mins = seconds // 60
+        secs = seconds % 60
+        return f"{mins:02d}:{secs:02d}"
     
     def draw(self):
         """Draw all game elements"""
@@ -161,17 +336,20 @@ class ChainHockeyGame:
         # Draw border (with gaps for goals)
         pygame.draw.rect(self.screen, WHITE, (0, 0, SCREEN_WIDTH, SCREEN_HEIGHT), 4)
         
-        # Draw chain first (so it appears behind striker and hammer)
-        self.chain.draw(self.screen)
+        # Draw chains first (so they appear behind strikers and hammers)
+        self.chain1.draw(self.screen)
+        self.chain2.draw(self.screen)
         
         # Draw puck
         self.puck.draw(self.screen)
         
-        # Draw striker
-        self.striker.draw(self.screen)
+        # Draw strikers
+        self.striker1.draw(self.screen)
+        self.striker2.draw(self.screen)
         
-        # Draw hammer
-        self.hammer.draw(self.screen)
+        # Draw hammers
+        self.hammer1.draw(self.screen)
+        self.hammer2.draw(self.screen)
         
         # Draw score
         score_font = pygame.font.Font(None, 72)
@@ -179,10 +357,38 @@ class ChainHockeyGame:
         score_rect = score_text.get_rect(center=(SCREEN_WIDTH // 2, 40))
         self.screen.blit(score_text, score_rect)
         
+        # Draw timer
+        time_remaining = self.get_time_remaining()
+        time_text = score_font.render(self.format_time(time_remaining), True, WHITE)
+        time_rect = time_text.get_rect(center=(SCREEN_WIDTH // 2, 100))
+        self.screen.blit(time_text, time_rect)
+        
         # Draw instructions
         font = pygame.font.Font(None, 24)
-        instructions = font.render("Move mouse to control | SPACE to reset puck | ESC to quit", True, GRAY)
-        self.screen.blit(instructions, (10, 10))
+        if not self.game_over:
+            instructions = font.render("P1: Mouse | P2: WASD | SPACE: Reset puck | ESC: Quit", True, GRAY)
+            self.screen.blit(instructions, (10, 10))
+        else:
+            # Draw game over screen
+            overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+            overlay.set_alpha(200)
+            overlay.fill(BLACK)
+            self.screen.blit(overlay, (0, 0))
+            
+            game_over_font = pygame.font.Font(None, 96)
+            if self.winner == 1:
+                winner_text = game_over_font.render("Player 1 Wins!", True, PLAYER1_COLOR)
+            elif self.winner == 2:
+                winner_text = game_over_font.render("Player 2 Wins!", True, PLAYER2_COLOR)
+            else:
+                winner_text = game_over_font.render("Tie Game!", True, WHITE)
+            
+            winner_rect = winner_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 50))
+            self.screen.blit(winner_text, winner_rect)
+            
+            restart_text = font.render("Press SPACE to restart or ESC to quit", True, WHITE)
+            restart_rect = restart_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 50))
+            self.screen.blit(restart_text, restart_rect)
         
         # Update display
         pygame.display.flip()

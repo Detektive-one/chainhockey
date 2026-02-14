@@ -65,8 +65,9 @@ class ChainSegment:
 class Chain:
     """Physics-based chain connecting striker to hammer"""
     
-    def __init__(self, start_x, start_y):
+    def __init__(self, start_x, start_y, color=CHAIN_COLOR):
         self.segments = []
+        self.color = color
         
         # Create chain segments
         for i in range(CHAIN_SEGMENTS + 1):
@@ -164,13 +165,13 @@ class Chain:
         for i in range(len(self.segments) - 1):
             seg1 = self.segments[i]
             seg2 = self.segments[i + 1]
-            pygame.draw.line(screen, CHAIN_COLOR, 
+            pygame.draw.line(screen, self.color, 
                            (int(seg1.x), int(seg1.y)), 
                            (int(seg2.x), int(seg2.y)), 
                            CHAIN_THICKNESS)
         
         # Draw small circles at each segment for visual effect
         for segment in self.segments:
-            pygame.draw.circle(screen, CHAIN_COLOR, 
+            pygame.draw.circle(screen, self.color, 
                              (int(segment.x), int(segment.y)), 3)
 
