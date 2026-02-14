@@ -14,6 +14,7 @@ from .config import (
     PUCK_FRICTION, PUCK_WALL_BOUNCE,
     GAME_DURATION_SECONDS, MAX_GOALS
 )
+from .platform import is_web, get_storage
 
 
 @dataclass
@@ -117,33 +118,67 @@ class ConfigManager:
     def __init__(self, config_file='config.json'):
         self.config_file = config_file
         self.config = GameConfig.default()
+        self._web_storage_key = 'chainhockey_config'
     
-    def load(self):
-        """Load configuration from JSON file, fallback to defaults if file doesn't exist"""
-        if os.path.exists(self.config_file):
-            try:
-                with open(self.config_file, 'r') as f:
-                    data = json.load(f)
+    def _load_from_web(self):
+        """Load configuration from browser localStorage"""
+        try:
+            storage = get_storage()
+            if storage:
+                stored = storage.getItem(self._web_storage_key)
+                if stored:
+                    data = json.loads(stored)
                     self.config = GameConfig.from_dict(data)
                     return True
-            except (json.JSONDecodeError, KeyError, ValueError) as e:
-                print(f"Error loading config: {e}. Using defaults.")
-                self.config = GameConfig.default()
-                return False
-        else:
-            # File doesn't exist, use defaults
-            self.config = GameConfig.default()
+        except Exception as e:
+            print(f"Error loading from web storage: {e}")
+        return False
+    
+    def _save_to_web(self):
+        """Save configuration to browser localStorage"""
+        try:
+            storage = get_storage()
+            if storage:
+                storage.setItem(self._web_storage_key, json.dumps(self.config.to_dict()))
+                return True
+        except Exception as e:
+            print(f"Error saving to web storage: {e}")
             return False
     
+    def load(self):
+        """Load configuration from JSON file or web storage"""
+        if is_web():
+            return self._load_from_web()
+        else:
+            # Desktop: load from file
+            if os.path.exists(self.config_file):
+                try:
+                    with open(self.config_file, 'r') as f:
+                        data = json.load(f)
+                        self.config = GameConfig.from_dict(data)
+                        return True
+                except (json.JSONDecodeError, KeyError, ValueError) as e:
+                    print(f"Error loading config: {e}. Using defaults.")
+                    self.config = GameConfig.default()
+                    return False
+            else:
+                # File doesn't exist, use defaults
+                self.config = GameConfig.default()
+                return False
+    
     def save(self):
-        """Save current configuration to JSON file"""
-        try:
-            with open(self.config_file, 'w') as f:
-                json.dump(self.config.to_dict(), f, indent=2)
-            return True
-        except IOError as e:
-            print(f"Error saving config: {e}")
-            return False
+        """Save current configuration to JSON file or web storage"""
+        if is_web():
+            return self._save_to_web()
+        else:
+            # Desktop: save to file
+            try:
+                with open(self.config_file, 'w') as f:
+                    json.dump(self.config.to_dict(), f, indent=2)
+                return True
+            except IOError as e:
+                print(f"Error saving config: {e}")
+                return False
     
     def get_config(self):
         """Get current configuration"""

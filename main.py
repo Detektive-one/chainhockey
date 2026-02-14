@@ -4,9 +4,12 @@ Chain Hockey - Entry point for the game.
 
 import pygame
 import sys
+import time
 from chainhockey.config_manager import ConfigManager
 from chainhockey.game import ChainHockeyGame, GameState
-from chainhockey.menu import StartMenu, PauseMenu, OptionsMenu, MenuState
+from chainhockey.menu import (StartMenu, PauseMenu, OptionsMenu, MenuState,
+                             MultiplayerMenu, CreateRoomMenu, JoinRoomMenu)
+from chainhockey.network_sync import NetworkSync
 from chainhockey.config import SCREEN_WIDTH, SCREEN_HEIGHT, FPS
 
 
@@ -30,16 +33,107 @@ def main():
     game_state = [MenuState.START]
     previous_state = [MenuState.START]  # Track where we came from
     
+    # Network sync (will be initialized when needed)
+    network_sync = None
+    multiplayer_menu = None
+    create_room_menu = None
+    join_room_menu = None
+    
     # Create menus with proper callbacks
     def set_state(new_state):
         previous_state[0] = game_state[0]
         game_state[0] = new_state
     
+    def handle_create_room():
+        """Handle creating a room"""
+        nonlocal network_sync, create_room_menu, set_state
+        if not network_sync:
+            network_sync = NetworkSync()
+            network_sync.start()
+        
+        # Wait for connection
+        time.sleep(0.5)
+        
+        if network_sync.connected:
+            network_sync.create_room()
+            # Wait for response
+            time.sleep(0.5)
+            messages = network_sync.poll_messages()
+            for msg_type, data in messages:
+                if msg_type == 'room_created':
+                    room_id = data.get('room_id')
+                    # Create menu with room ID
+                    create_room_menu = CreateRoomMenu(
+                        screen,
+                        room_id=room_id,
+                        on_cancel=lambda: (network_sync.stop() if network_sync else None, set_state(MenuState.MULTIPLAYER)),
+                        on_player_joined=lambda: (game.set_multiplayer(network_sync, is_host=True), set_state(MenuState.GAME))
+                    )
+                    set_state(MenuState.CREATE_ROOM)
+                    return
+            # Error creating room
+            print("Failed to create room")
+        else:
+            print("Not connected to server")
+    
+    def handle_join_room(room_id: str):
+        """Handle joining a room"""
+        nonlocal network_sync, join_room_menu, set_state
+        if not network_sync:
+            network_sync = NetworkSync()
+            network_sync.start()
+        
+        # Wait a bit for connection
+        time.sleep(0.5)
+        
+        if network_sync.connected:
+            network_sync.join_room(room_id)
+            # Wait for response
+            time.sleep(0.5)
+            messages = network_sync.poll_messages()
+            for msg_type, data in messages:
+                if msg_type == 'room_joined':
+                    # Successfully joined
+                    game.set_multiplayer(network_sync, is_host=False)
+                    set_state(MenuState.GAME)
+                    return
+                elif msg_type == 'error':
+                    if join_room_menu:
+                        join_room_menu.set_error(data.get('message', 'Failed to join room'))
+            # If no response, show error
+            if join_room_menu:
+                join_room_menu.set_error("Failed to join room. Check room code.")
+        else:
+            if join_room_menu:
+                join_room_menu.set_error("Not connected to server")
+    
+    def create_multiplayer_menu():
+        nonlocal multiplayer_menu
+        if not multiplayer_menu:
+            multiplayer_menu = MultiplayerMenu(
+                screen,
+                on_create_room=lambda: handle_create_room(),
+                on_join_room=lambda: set_state(MenuState.JOIN_ROOM),
+                on_back=lambda: set_state(MenuState.START)
+            )
+        return multiplayer_menu
+    
+    def create_join_room_menu():
+        nonlocal join_room_menu
+        if not join_room_menu:
+            join_room_menu = JoinRoomMenu(
+                screen,
+                on_join=lambda room_id: handle_join_room(room_id),
+                on_back=lambda: set_state(MenuState.MULTIPLAYER)
+            )
+        return join_room_menu
+    
     start_menu = StartMenu(
         screen,
         on_start=lambda: set_state(MenuState.GAME),
         on_options=lambda: set_state(MenuState.OPTIONS),
-        on_exit=lambda: set_state(MenuState.EXIT)
+        on_exit=lambda: set_state(MenuState.EXIT),
+        on_multiplayer=lambda: set_state(MenuState.MULTIPLAYER)
     )
     
     pause_menu = PauseMenu(
@@ -72,6 +166,30 @@ def main():
         # Handle state transitions
         if state == MenuState.START:
             current_menu = start_menu
+            game.state = GameState.MENU
+        elif state == MenuState.MULTIPLAYER:
+            current_menu = create_multiplayer_menu()
+            game.state = GameState.MENU
+        elif state == MenuState.CREATE_ROOM:
+            if not create_room_menu:
+                handle_create_room()
+            if create_room_menu:
+                current_menu = create_room_menu
+                game.state = GameState.MENU
+                # Check for player joined
+                if network_sync:
+                    messages = network_sync.poll_messages()
+                    for msg_type, data in messages:
+                        if msg_type == 'player_connected':
+                            create_room_menu.set_player_joined(True)
+                            # Auto-start game after short delay
+                            time.sleep(1)
+                            game.set_multiplayer(network_sync, is_host=True)
+                            set_state(MenuState.GAME)
+            else:
+                current_menu = create_multiplayer_menu()
+        elif state == MenuState.JOIN_ROOM:
+            current_menu = create_join_room_menu()
             game.state = GameState.MENU
         elif state == MenuState.GAME:
             if game.state != GameState.PLAYING:
@@ -162,6 +280,10 @@ def main():
         # Update display
         pygame.display.flip()
         clock.tick(FPS)
+    
+    # Cleanup
+    if network_sync:
+        network_sync.stop()
     
     # Quit
     pygame.quit()

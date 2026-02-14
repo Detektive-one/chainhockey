@@ -16,17 +16,22 @@ class MenuState(Enum):
     PAUSE = "pause"
     OPTIONS = "options"
     GAME = "game"
+    MULTIPLAYER = "multiplayer"
+    CREATE_ROOM = "create_room"
+    JOIN_ROOM = "join_room"
     EXIT = "exit"
 
 
 class StartMenu:
     """Main start menu"""
     
-    def __init__(self, screen, on_start: Callable, on_options: Callable, on_exit: Callable):
+    def __init__(self, screen, on_start: Callable, on_options: Callable, on_exit: Callable, 
+                 on_multiplayer: Optional[Callable] = None):
         self.screen = screen
         self.on_start = on_start
         self.on_options = on_options
         self.on_exit = on_exit
+        self.on_multiplayer = on_multiplayer
         
         center_x = SCREEN_WIDTH // 2
         button_width = 300
@@ -39,14 +44,20 @@ class StartMenu:
             callback=lambda: self.on_start()
         )
         
-        self.options_button = Button(
+        self.multiplayer_button = Button(
             center_x - button_width // 2, button_y_start + 80,
+            button_width, button_height, "Multiplayer",
+            callback=lambda: self.on_multiplayer() if hasattr(self, 'on_multiplayer') else None
+        )
+        
+        self.options_button = Button(
+            center_x - button_width // 2, button_y_start + 160,
             button_width, button_height, "Options",
             callback=lambda: self.on_options()
         )
         
         self.exit_button = Button(
-            center_x - button_width // 2, button_y_start + 160,
+            center_x - button_width // 2, button_y_start + 240,
             button_width, button_height, "Exit",
             callback=lambda: self.on_exit()
         )
@@ -56,6 +67,8 @@ class StartMenu:
     def handle_event(self, event):
         """Handle events"""
         self.start_button.handle_event(event)
+        if self.multiplayer_button:
+            self.multiplayer_button.handle_event(event)
         self.options_button.handle_event(event)
         self.exit_button.handle_event(event)
     
@@ -70,6 +83,8 @@ class StartMenu:
         
         # Draw buttons
         self.start_button.draw(self.screen)
+        if self.multiplayer_button:
+            self.multiplayer_button.draw(self.screen)
         self.options_button.draw(self.screen)
         self.exit_button.draw(self.screen)
 
@@ -455,4 +470,205 @@ class OptionsMenu:
         for text_input in self.text_inputs:
             if 0 <= text_input.rect.y <= SCREEN_HEIGHT:
                 text_input.draw(self.screen)
+
+
+class MultiplayerMenu:
+    """Multiplayer menu - choose create or join room"""
+    
+    def __init__(self, screen, on_create_room: Callable, on_join_room: Callable, on_back: Callable):
+        self.screen = screen
+        self.on_create_room = on_create_room
+        self.on_join_room = on_join_room
+        self.on_back = on_back
+        
+        center_x = SCREEN_WIDTH // 2
+        button_width = 300
+        button_height = 60
+        button_y_start = SCREEN_HEIGHT // 2 - 50
+        
+        self.create_button = Button(
+            center_x - button_width // 2, button_y_start,
+            button_width, button_height, "Create Room",
+            callback=lambda: self.on_create_room()
+        )
+        
+        self.join_button = Button(
+            center_x - button_width // 2, button_y_start + 80,
+            button_width, button_height, "Join Room",
+            callback=lambda: self.on_join_room()
+        )
+        
+        self.back_button = Button(
+            center_x - button_width // 2, button_y_start + 160,
+            button_width, button_height, "Back",
+            callback=lambda: self.on_back()
+        )
+        
+        self.title_font = pygame.font.Font(None, 72)
+    
+    def handle_event(self, event):
+        """Handle events"""
+        self.create_button.handle_event(event)
+        self.join_button.handle_event(event)
+        self.back_button.handle_event(event)
+    
+    def draw(self):
+        """Draw the menu"""
+        self.screen.fill(BLACK)
+        
+        # Draw title
+        title_text = self.title_font.render("Multiplayer", True, WHITE)
+        title_rect = title_text.get_rect(center=(SCREEN_WIDTH // 2, 150))
+        self.screen.blit(title_text, title_rect)
+        
+        # Draw buttons
+        self.create_button.draw(self.screen)
+        self.join_button.draw(self.screen)
+        self.back_button.draw(self.screen)
+
+
+class CreateRoomMenu:
+    """Menu shown when creating a room - displays room code and waits for player"""
+    
+    def __init__(self, screen, room_id: str, on_cancel: Callable, 
+                 on_player_joined: Optional[Callable] = None):
+        self.screen = screen
+        self.room_id = room_id
+        self.on_cancel = on_cancel
+        self.on_player_joined = on_player_joined
+        self.player_joined = False
+        
+        center_x = SCREEN_WIDTH // 2
+        button_width = 300
+        button_height = 60
+        
+        self.cancel_button = Button(
+            center_x - button_width // 2, SCREEN_HEIGHT - 100,
+            button_width, button_height, "Cancel",
+            callback=lambda: self.on_cancel()
+        )
+        
+        self.title_font = pygame.font.Font(None, 72)
+        self.info_font = pygame.font.Font(None, 36)
+        self.status_font = pygame.font.Font(None, 24)
+    
+    def set_player_joined(self, joined: bool):
+        """Update player joined status"""
+        self.player_joined = joined
+        if joined and self.on_player_joined:
+            self.on_player_joined()
+    
+    def handle_event(self, event):
+        """Handle events"""
+        self.cancel_button.handle_event(event)
+    
+    def draw(self):
+        """Draw the menu"""
+        self.screen.fill(BLACK)
+        
+        # Draw title
+        title_text = self.title_font.render("Create Room", True, WHITE)
+        title_rect = title_text.get_rect(center=(SCREEN_WIDTH // 2, 150))
+        self.screen.blit(title_text, title_rect)
+        
+        # Draw room code
+        code_text = self.info_font.render(f"Room Code: {self.room_id}", True, WHITE)
+        code_rect = code_text.get_rect(center=(SCREEN_WIDTH // 2, 250))
+        self.screen.blit(code_text, code_rect)
+        
+        # Draw status
+        if self.player_joined:
+            status_text = self.status_font.render("Player 2 Connected! Starting game...", True, (50, 255, 100))
+        else:
+            status_text = self.status_font.render("Waiting for player 2 to join...", True, GRAY)
+        status_rect = status_text.get_rect(center=(SCREEN_WIDTH // 2, 320))
+        self.screen.blit(status_text, status_rect)
+        
+        # Draw instructions
+        instructions = self.status_font.render("Share this room code with your friend", True, GRAY)
+        inst_rect = instructions.get_rect(center=(SCREEN_WIDTH // 2, 380))
+        self.screen.blit(instructions, inst_rect)
+        
+        # Draw button
+        self.cancel_button.draw(self.screen)
+
+
+class JoinRoomMenu:
+    """Menu for joining a room - input room code"""
+    
+    def __init__(self, screen, on_join: Callable, on_back: Callable):
+        self.screen = screen
+        self.on_join = on_join
+        self.on_back = on_back
+        
+        center_x = SCREEN_WIDTH // 2
+        button_width = 200
+        button_height = 60
+        
+        # Room code input
+        self.room_input = TextInput(
+            center_x - 150, SCREEN_HEIGHT // 2 - 30,
+            300, 50, initial_value="", numeric=False
+        )
+        
+        self.join_button = Button(
+            center_x - button_width // 2, SCREEN_HEIGHT // 2 + 50,
+            button_width, button_height, "Join",
+            callback=lambda: self._handle_join()
+        )
+        
+        self.back_button = Button(
+            center_x - button_width // 2, SCREEN_HEIGHT // 2 + 130,
+            button_width, button_height, "Back",
+            callback=lambda: self.on_back()
+        )
+        
+        self.title_font = pygame.font.Font(None, 72)
+        self.label_font = pygame.font.Font(None, 24)
+        self.error_message = None
+    
+    def _handle_join(self):
+        """Handle join button click"""
+        room_code = self.room_input.get_value().upper().strip()
+        if len(room_code) == 6:
+            self.on_join(room_code)
+        else:
+            self.error_message = "Room code must be 6 characters"
+    
+    def set_error(self, message: str):
+        """Set error message"""
+        self.error_message = message
+    
+    def handle_event(self, event):
+        """Handle events"""
+        self.room_input.handle_event(event)
+        self.join_button.handle_event(event)
+        self.back_button.handle_event(event)
+    
+    def draw(self):
+        """Draw the menu"""
+        self.screen.fill(BLACK)
+        
+        # Draw title
+        title_text = self.title_font.render("Join Room", True, WHITE)
+        title_rect = title_text.get_rect(center=(SCREEN_WIDTH // 2, 150))
+        self.screen.blit(title_text, title_rect)
+        
+        # Draw label
+        label_text = self.label_font.render("Enter Room Code:", True, WHITE)
+        label_rect = label_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 80))
+        self.screen.blit(label_text, label_rect)
+        
+        # Draw input
+        self.room_input.draw(self.screen)
+        
+        # Draw error message
+        if self.error_message:
+            error_text = self.label_font.render(self.error_message, True, (255, 50, 50))
+            error_rect = error_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 20))
+            self.screen.blit(error_text, error_rect)
+        
+        # Draw buttons
+        self.join_button.draw(self.screen)
+        self.back_button.draw(self.screen)
 

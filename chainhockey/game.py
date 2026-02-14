@@ -5,6 +5,7 @@ Main game loop and game state management.
 import pygame
 import sys
 from enum import Enum
+from typing import Optional
 from .config import (
     SCREEN_WIDTH, SCREEN_HEIGHT, FPS, BLACK, WHITE, GRAY,
     GOAL_COLOR, GOAL_LEFT_X, GOAL_RIGHT_X, GOAL_Y, GOAL_WIDTH, GOAL_HEIGHT,
@@ -15,6 +16,8 @@ from .chain import Chain
 from .game_objects import Striker, Hammer, Puck
 from .physics import check_collision_circle, resolve_collision, separate_circles
 from .config_manager import GameConfig
+from .network import NetworkClient, ConnectionState
+from .network_sync import NetworkSync
 
 
 class GameState(Enum):
@@ -43,6 +46,14 @@ class ChainHockeyGame:
         self.state = GameState.MENU
         self.running = True
         self.dt = 1.0  # Delta time for physics
+        
+        # Network/multiplayer
+        self.network_sync: Optional[NetworkSync] = None
+        self.is_multiplayer = False
+        self.is_host = False  # Player 1 is host in multiplayer
+        self.remote_player_input = {}  # Store remote player input
+        self.last_state_send_time = 0
+        self.state_send_interval = 100  # Send state every 100ms
         
         # Initialize game objects (will be created in start_game)
         self.striker1 = None
@@ -140,6 +151,96 @@ class ChainHockeyGame:
         """Reset game state without reinitializing display"""
         self.start_game()
     
+    def set_multiplayer(self, network_sync: NetworkSync, is_host: bool):
+        """Enable multiplayer mode with network sync"""
+        self.network_sync = network_sync
+        self.is_multiplayer = True
+        self.is_host = is_host
+    
+    def _process_network_messages(self):
+        """Process network messages (call from main loop)"""
+        if not self.network_sync:
+            return
+        
+        # Poll for messages
+        messages = self.network_sync.poll_messages()
+        for msg_type, data in messages:
+            if msg_type == 'player_connected':
+                # Player 2 joined, can start game
+                pass
+            elif msg_type == 'player_disconnected':
+                print(f"Player {data.get('player_num')} disconnected")
+            elif msg_type == 'error':
+                print(f"Network error: {data.get('message')}")
+        
+        # Poll for remote input
+        inputs = self.network_sync.poll_input()
+        for input_data in inputs:
+            player_num = input_data.get('player_num')
+            input_dict = input_data.get('input', {})
+            self.remote_player_input[player_num] = input_dict
+        
+        # Poll for remote state (non-host only)
+        if not self.is_host:
+            states = self.network_sync.poll_state()
+            for state_data in states:
+                # Could apply remote state for reconciliation
+                pass
+    
+    def _send_player_input(self):
+        """Send local player input to network"""
+        if not self.network_sync or not self.is_multiplayer:
+            return
+        
+        # Get current input state
+        mouse_x, mouse_y = pygame.mouse.get_pos()
+        keys = pygame.key.get_pressed()
+        
+        input_data = {
+            'mouse_x': mouse_x,
+            'mouse_y': mouse_y,
+            'keys': {
+                'w': bool(keys[pygame.K_w]),
+                'a': bool(keys[pygame.K_a]),
+                's': bool(keys[pygame.K_s]),
+                'd': bool(keys[pygame.K_d])
+            }
+        }
+        
+        # Send input (thread-safe)
+        self.network_sync.send_input(input_data)
+    
+    def _send_game_state(self):
+        """Send game state to network (host only)"""
+        if not self.network_sync or not self.is_multiplayer or not self.is_host:
+            return
+        
+        if not self.network_sync.connected:
+            return
+        
+        current_time = pygame.time.get_ticks()
+        if current_time - self.last_state_send_time < self.state_send_interval:
+            return
+        
+        self.last_state_send_time = current_time
+        
+        # Prepare game state
+        state = {
+            'puck': {
+                'x': self.puck.x if self.puck else 0,
+                'y': self.puck.y if self.puck else 0,
+                'vel_x': self.puck.vel_x if self.puck else 0,
+                'vel_y': self.puck.vel_y if self.puck else 0
+            },
+            'player1_score': self.player1_score,
+            'player2_score': self.player2_score,
+            'time_remaining': self.get_time_remaining(),
+            'game_over': self.game_over
+        }
+        
+        # Send state (thread-safe)
+        self.network_sync.send_state(state)
+    
     def handle_events(self):
         """Handle pygame events"""
         for event in pygame.event.get():
@@ -199,21 +300,86 @@ class ChainHockeyGame:
         if self.game_over:
             return
         
-        # Get mouse position and update Player 1 (mouse controlled)
-        mouse_x, mouse_y = pygame.mouse.get_pos()
-        self.striker1.prev_x = self.striker1.x
-        self.striker1.prev_y = self.striker1.y
-        self.striker1.update_position_mouse(mouse_x, mouse_y)
-        self.striker1.vel_x = self.striker1.x - self.striker1.prev_x
-        self.striker1.vel_y = self.striker1.y - self.striker1.prev_y
+        # Process network messages
+        if self.is_multiplayer:
+            self._process_network_messages()
         
-        # Update Player 2 (WASD controlled)
-        keys = pygame.key.get_pressed()
-        self.striker2.prev_x = self.striker2.x
-        self.striker2.prev_y = self.striker2.y
-        self.striker2.update_position_keyboard(keys)
-        self.striker2.vel_x = self.striker2.x - self.striker2.prev_x
-        self.striker2.vel_y = self.striker2.y - self.striker2.prev_y
+        # Handle multiplayer input
+        if self.is_multiplayer:
+            # Player 1: local input (mouse)
+            if self.is_host or (not self.is_host and self.network_sync and self.network_sync.player_num == 1):
+                mouse_x, mouse_y = pygame.mouse.get_pos()
+                self.striker1.prev_x = self.striker1.x
+                self.striker1.prev_y = self.striker1.y
+                self.striker1.update_position_mouse(mouse_x, mouse_y)
+                self.striker1.vel_x = self.striker1.x - self.striker1.prev_x
+                self.striker1.vel_y = self.striker1.y - self.striker1.prev_y
+                # Send input to network
+                self._send_player_input()
+            else:
+                # Apply remote input for Player 1
+                if 1 in self.remote_player_input:
+                    remote_input = self.remote_player_input[1]
+                    self.striker1.prev_x = self.striker1.x
+                    self.striker1.prev_y = self.striker1.y
+                    self.striker1.update_position_mouse(remote_input.get('mouse_x', self.striker1.x),
+                                                       remote_input.get('mouse_y', self.striker1.y))
+                    self.striker1.vel_x = self.striker1.x - self.striker1.prev_x
+                    self.striker1.vel_y = self.striker1.y - self.striker1.prev_y
+            
+            # Player 2: local or remote input
+            if (not self.is_host and self.network_sync and self.network_sync.player_num == 2) or \
+               (self.is_host and not self.is_multiplayer):
+                # Local WASD control
+                keys = pygame.key.get_pressed()
+                self.striker2.prev_x = self.striker2.x
+                self.striker2.prev_y = self.striker2.y
+                self.striker2.update_position_keyboard(keys)
+                self.striker2.vel_x = self.striker2.x - self.striker2.prev_x
+                self.striker2.vel_y = self.striker2.y - self.striker2.prev_y
+                # Send input to network
+                if self.is_multiplayer:
+                    self._send_player_input()
+            else:
+                # Apply remote input for Player 2
+                if 2 in self.remote_player_input:
+                    remote_input = self.remote_player_input[2]
+                    keys_dict = remote_input.get('keys', {})
+                    # Create a mock keys object
+                    class MockKeys:
+                        def __getitem__(self, key):
+                            if key == pygame.K_w:
+                                return keys_dict.get('w', False)
+                            elif key == pygame.K_a:
+                                return keys_dict.get('a', False)
+                            elif key == pygame.K_s:
+                                return keys_dict.get('s', False)
+                            elif key == pygame.K_d:
+                                return keys_dict.get('d', False)
+                            return False
+                    mock_keys = MockKeys()
+                    self.striker2.prev_x = self.striker2.x
+                    self.striker2.prev_y = self.striker2.y
+                    self.striker2.update_position_keyboard(mock_keys)
+                    self.striker2.vel_x = self.striker2.x - self.striker2.prev_x
+                    self.striker2.vel_y = self.striker2.y - self.striker2.prev_y
+        else:
+            # Single player mode (original behavior)
+            # Get mouse position and update Player 1 (mouse controlled)
+            mouse_x, mouse_y = pygame.mouse.get_pos()
+            self.striker1.prev_x = self.striker1.x
+            self.striker1.prev_y = self.striker1.y
+            self.striker1.update_position_mouse(mouse_x, mouse_y)
+            self.striker1.vel_x = self.striker1.x - self.striker1.prev_x
+            self.striker1.vel_y = self.striker1.y - self.striker1.prev_y
+            
+            # Update Player 2 (WASD controlled)
+            keys = pygame.key.get_pressed()
+            self.striker2.prev_x = self.striker2.x
+            self.striker2.prev_y = self.striker2.y
+            self.striker2.update_position_keyboard(keys)
+            self.striker2.vel_x = self.striker2.x - self.striker2.prev_x
+            self.striker2.vel_y = self.striker2.y - self.striker2.prev_y
         
         # Update chain physics
         p1_config = self.config.player1
@@ -256,6 +422,10 @@ class ChainHockeyGame:
         
         # Check win conditions
         self.check_win_condition()
+        
+        # Send game state in multiplayer (host only)
+        if self.is_multiplayer:
+            self._send_game_state()
     
     def handle_collisions(self):
         """Handle collisions between game objects"""
