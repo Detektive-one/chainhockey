@@ -9,6 +9,7 @@ from .config import (
     DAMPING, GRAVITY, CONSTRAINT_ITERATIONS, CHAIN_SEGMENT_RADIUS,
     SCREEN_WIDTH, SCREEN_HEIGHT, CENTER_LINE_X
 )
+from typing import Optional
 
 
 class ChainSegment:
@@ -21,16 +22,19 @@ class ChainSegment:
         self.old_y = y
         self.pinned = False
     
-    def update(self, dt):
+    def update(self, dt, damping: Optional[float] = None, gravity: Optional[float] = None):
         """Update position using Verlet integration"""
         if self.pinned:
             self.old_x = self.x
             self.old_y = self.y
             return
         
+        damping_val = damping if damping is not None else DAMPING
+        gravity_val = gravity if gravity is not None else GRAVITY
+        
         # Calculate velocity from position history
-        vel_x = (self.x - self.old_x) * DAMPING
-        vel_y = (self.y - self.old_y) * DAMPING
+        vel_x = (self.x - self.old_x) * damping_val
+        vel_y = (self.y - self.old_y) * damping_val
         
         # Store current position
         temp_x = self.x
@@ -38,7 +42,7 @@ class ChainSegment:
         
         # Update position with velocity and gravity
         self.x += vel_x
-        self.y += vel_y + GRAVITY * dt * dt
+        self.y += vel_y + gravity_val * dt * dt
         
         # Store old position
         self.old_x = temp_x
@@ -65,31 +69,41 @@ class ChainSegment:
 class Chain:
     """Physics-based chain connecting striker to hammer"""
     
-    def __init__(self, start_x, start_y, color=CHAIN_COLOR):
+    def __init__(self, start_x, start_y, color=CHAIN_COLOR, 
+                 segments: Optional[int] = None, segment_length: Optional[float] = None,
+                 thickness: Optional[int] = None):
         self.segments = []
         self.color = color
+        self.segment_length = segment_length if segment_length is not None else SEGMENT_LENGTH
+        self.thickness = thickness if thickness is not None else CHAIN_THICKNESS
+        
+        num_segments = segments if segments is not None else CHAIN_SEGMENTS
         
         # Create chain segments
-        for i in range(CHAIN_SEGMENTS + 1):
-            x = start_x + i * SEGMENT_LENGTH
+        for i in range(num_segments + 1):
+            x = start_x + i * self.segment_length
             y = start_y
             segment = ChainSegment(x, y)
             self.segments.append(segment)
     
-    def update(self, dt, striker_x, striker_y, striker_radius, min_x=None, max_x=None):
+    def update(self, dt, striker_x, striker_y, striker_radius, min_x=None, max_x=None,
+               damping: Optional[float] = None, gravity: Optional[float] = None,
+               constraint_iterations: Optional[int] = None):
         """Update all segments with optional horizontal boundaries"""
         # Pin first segment to striker
         self.segments[0].x = striker_x
         self.segments[0].y = striker_y
         self.segments[0].pinned = True
         
+        iterations = constraint_iterations if constraint_iterations is not None else CONSTRAINT_ITERATIONS
+        
         # Update all other segments
         for segment in self.segments[1:]:
-            segment.update(dt)
+            segment.update(dt, damping, gravity)
             segment.constrain_to_bounds(min_x, max_x)
         
         # Apply distance constraints multiple times for stability
-        for _ in range(CONSTRAINT_ITERATIONS):
+        for _ in range(iterations):
             self.apply_constraints()
             # Apply striker collision after each constraint iteration for better stability
             self.apply_striker_collision(striker_x, striker_y, striker_radius)
@@ -113,7 +127,7 @@ class Chain:
                 distance = 0.01
             
             # Calculate difference from desired length
-            difference = (SEGMENT_LENGTH - distance) / distance
+            difference = (self.segment_length - distance) / distance
             
             # Move segments to maintain distance
             offset_x = dx * difference * 0.5
@@ -168,7 +182,7 @@ class Chain:
             pygame.draw.line(screen, self.color, 
                            (int(seg1.x), int(seg1.y)), 
                            (int(seg2.x), int(seg2.y)), 
-                           CHAIN_THICKNESS)
+                           self.thickness)
         
         # Draw small circles at each segment for visual effect
         for segment in self.segments:

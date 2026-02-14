@@ -70,3 +70,43 @@ STRIKER_SPEED = 5.0
 GAME_DURATION_SECONDS = 300  # 5 minutes
 MAX_GOALS = 10  # First to 10 goals wins
 
+# Default configuration dictionary for fallback
+DEFAULT_CONFIG = {
+    'player1': {
+        'striker_radius': STRIKER_RADIUS,
+        'striker_color': STRIKER_COLOR,
+        'striker_mass': STRIKER_MASS,
+        'striker_speed': STRIKER_SPEED,
+        'chain_segments': CHAIN_SEGMENTS,
+        'segment_length': SEGMENT_LENGTH,
+        'chain_color': CHAIN1_COLOR,
+        'chain_thickness': CHAIN_THICKNESS,
+        'chain_damping': DAMPING,
+        'hammer_radius': HAMMER_RADIUS,
+        'hammer_color': HAMMER_COLOR,
+        'hammer_mass': HAMMER_MASS
+    },
+    'player2': {
+        'striker_radius': STRIKER_RADIUS,
+        'striker_color': PLAYER2_COLOR,
+        'striker_mass': STRIKER_MASS,
+        'striker_speed': STRIKER_SPEED,
+        'chain_segments': CHAIN_SEGMENTS,
+        'segment_length': SEGMENT_LENGTH,
+        'chain_color': CHAIN2_COLOR,
+        'chain_thickness': CHAIN_THICKNESS,
+        'chain_damping': DAMPING,
+        'hammer_radius': HAMMER_RADIUS,
+        'hammer_color': HAMMER_COLOR,
+        'hammer_mass': HAMMER_MASS
+    },
+    'global': {
+        'gravity': GRAVITY,
+        'constraint_iterations': CONSTRAINT_ITERATIONS,
+        'puck_friction': PUCK_FRICTION,
+        'puck_wall_bounce': PUCK_WALL_BOUNCE,
+        'game_duration_seconds': GAME_DURATION_SECONDS,
+        'max_goals': MAX_GOALS
+    }
+}
+

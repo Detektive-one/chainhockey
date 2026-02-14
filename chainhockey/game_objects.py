@@ -9,13 +9,14 @@ from .config import (
     GOAL_WIDTH, GOAL_HEIGHT, GOAL_Y, PUCK_FRICTION, PUCK_WALL_BOUNCE,
     WHITE, STRIKER_SPEED, CENTER_LINE_X
 )
+from typing import Optional
 
 
 class Striker:
     """Player-controlled striker that can be controlled by mouse or keyboard"""
     
     def __init__(self, x, y, radius=STRIKER_RADIUS, color=STRIKER_COLOR, 
-                 min_x=None, max_x=None, is_player1=True):
+                 min_x=None, max_x=None, is_player1=True, speed: Optional[float] = None):
         self.x = x
         self.y = y
         self.radius = radius
@@ -27,6 +28,7 @@ class Striker:
         self.min_x = min_x if min_x is not None else self.radius
         self.max_x = max_x if max_x is not None else SCREEN_WIDTH - self.radius
         self.is_player1 = is_player1
+        self.speed = speed if speed is not None else STRIKER_SPEED
     
     def update_position_mouse(self, mouse_x, mouse_y):
         """Update striker position to follow mouse, keeping it within bounds"""
@@ -40,13 +42,13 @@ class Striker:
         dy = 0
         
         if keys[pygame.K_w]:
-            dy -= STRIKER_SPEED
+            dy -= self.speed
         if keys[pygame.K_s]:
-            dy += STRIKER_SPEED
+            dy += self.speed
         if keys[pygame.K_a]:
-            dx -= STRIKER_SPEED
+            dx -= self.speed
         if keys[pygame.K_d]:
-            dx += STRIKER_SPEED
+            dx += self.speed
         
         # Update position
         new_x = self.x + dx
@@ -104,19 +106,22 @@ class Hammer:
 class Puck:
     """The puck that players try to score with"""
     
-    def __init__(self, x, y, radius=PUCK_RADIUS, color=PUCK_COLOR):
+    def __init__(self, x, y, radius=PUCK_RADIUS, color=PUCK_COLOR,
+                 friction: Optional[float] = None, wall_bounce: Optional[float] = None):
         self.x = x
         self.y = y
         self.radius = radius
         self.color = color
         self.vel_x = 0
         self.vel_y = 0
+        self.friction = friction if friction is not None else PUCK_FRICTION
+        self.wall_bounce = wall_bounce if wall_bounce is not None else PUCK_WALL_BOUNCE
     
     def update(self):
         """Update puck position based on velocity. Returns 'left', 'right', or None for goal detection"""
         # Apply friction
-        self.vel_x *= PUCK_FRICTION
-        self.vel_y *= PUCK_FRICTION
+        self.vel_x *= self.friction
+        self.vel_y *= self.friction
         
         # Update position
         self.x += self.vel_x
@@ -136,21 +141,21 @@ class Puck:
         if self.x - self.radius < 0:
             if not (GOAL_Y < self.y < GOAL_Y + GOAL_HEIGHT):
                 self.x = self.radius
-                self.vel_x = abs(self.vel_x) * PUCK_WALL_BOUNCE
+                self.vel_x = abs(self.vel_x) * self.wall_bounce
         
         # Right wall (not in goal)
         if self.x + self.radius > SCREEN_WIDTH:
             if not (GOAL_Y < self.y < GOAL_Y + GOAL_HEIGHT):
                 self.x = SCREEN_WIDTH - self.radius
-                self.vel_x = -abs(self.vel_x) * PUCK_WALL_BOUNCE
+                self.vel_x = -abs(self.vel_x) * self.wall_bounce
         
         # Top and bottom walls
         if self.y - self.radius < 0:
             self.y = self.radius
-            self.vel_y = abs(self.vel_y) * PUCK_WALL_BOUNCE
+            self.vel_y = abs(self.vel_y) * self.wall_bounce
         elif self.y + self.radius > SCREEN_HEIGHT:
             self.y = SCREEN_HEIGHT - self.radius
-            self.vel_y = -abs(self.vel_y) * PUCK_WALL_BOUNCE
+            self.vel_y = -abs(self.vel_y) * self.wall_bounce
         
         return None
     
