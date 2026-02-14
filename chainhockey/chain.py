@@ -75,8 +75,8 @@ class Chain:
             segment = ChainSegment(x, y)
             self.segments.append(segment)
     
-    def update(self, dt, striker_x, striker_y, striker_radius):
-        """Update all segments"""
+    def update(self, dt, striker_x, striker_y, striker_radius, min_x=None, max_x=None):
+        """Update all segments with optional horizontal boundaries"""
         # Pin first segment to striker
         self.segments[0].x = striker_x
         self.segments[0].y = striker_y
@@ -85,13 +85,16 @@ class Chain:
         # Update all other segments
         for segment in self.segments[1:]:
             segment.update(dt)
-            segment.constrain_to_bounds()
+            segment.constrain_to_bounds(min_x, max_x)
         
         # Apply distance constraints multiple times for stability
         for _ in range(CONSTRAINT_ITERATIONS):
             self.apply_constraints()
             # Apply striker collision after each constraint iteration for better stability
             self.apply_striker_collision(striker_x, striker_y, striker_radius)
+            # Re-constrain segments after constraints to respect boundaries
+            for segment in self.segments[1:]:
+                segment.constrain_to_bounds(min_x, max_x)
     
     def apply_constraints(self):
         """Maintain fixed distance between segments"""
