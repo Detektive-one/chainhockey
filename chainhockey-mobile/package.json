@@ -1,0 +1,21 @@
+{
+  "name": "chainhockey-mobile",
+  "version": "1.0.0",
+  "description": "Chain Hockey - Mobile physics-based air hockey game",
+  "main": "index.html",
+  "scripts": {
+    "start": "node server.js",
+    "serve": "python3 -m http.server 8080"
+  },
+  "keywords": [
+    "game",
+    "phaser",
+    "mobile",
+    "hockey",
+    "physics"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {}
+}
