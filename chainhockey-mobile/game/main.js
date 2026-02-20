@@ -31,7 +31,8 @@ const phaserConfig = {
 
 // Initialize the game when DOM is ready
 window.addEventListener('load', () => {
-    const game = new Phaser.Game(phaserConfig);
+    // Create game and store globally
+    window.game = new Phaser.Game(phaserConfig);
     
     // Prevent default touch behaviors
     document.addEventListener('touchmove', (e) => {
