@@ -50,11 +50,13 @@ class TouchInputManager {
     
     getPlayer1Input() {
         const pointerId = this.activePointers.get('player1');
-        if (pointerId !== undefined) {
-            const pointer = this.scene.input.pointers.find(p => p.id === pointerId);
-            if (pointer && pointer.isDown) {
-                const worldPoint = this.scene.cameras.main.getWorldPoint(pointer.x, pointer.y);
-                return { x: worldPoint.x, y: worldPoint.y, active: true };
+        if (pointerId !== undefined && this.scene.input.pointers) {
+            for (let i = 0; i < this.scene.input.pointers.length; i++) {
+                const pointer = this.scene.input.pointers[i];
+                if (pointer && pointer.id === pointerId && pointer.isDown) {
+                    const worldPoint = this.scene.cameras.main.getWorldPoint(pointer.x, pointer.y);
+                    return { x: worldPoint.x, y: worldPoint.y, active: true };
+                }
             }
         }
         return { x: 0, y: 0, active: false };
@@ -62,11 +64,13 @@ class TouchInputManager {
     
     getPlayer2Input() {
         const pointerId = this.activePointers.get('player2');
-        if (pointerId !== undefined) {
-            const pointer = this.scene.input.pointers.find(p => p.id === pointerId);
-            if (pointer && pointer.isDown) {
-                const worldPoint = this.scene.cameras.main.getWorldPoint(pointer.x, pointer.y);
-                return { x: worldPoint.x, y: worldPoint.y, active: true };
+        if (pointerId !== undefined && this.scene.input.pointers) {
+            for (let i = 0; i < this.scene.input.pointers.length; i++) {
+                const pointer = this.scene.input.pointers[i];
+                if (pointer && pointer.id === pointerId && pointer.isDown) {
+                    const worldPoint = this.scene.cameras.main.getWorldPoint(pointer.x, pointer.y);
+                    return { x: worldPoint.x, y: worldPoint.y, active: true };
+                }
             }
         }
         return { x: 0, y: 0, active: false };
