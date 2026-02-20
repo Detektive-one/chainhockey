@@ -7,6 +7,8 @@ import subprocess
 import sys
 import os
 
+
+
 def build_web():
     """Build the game for web using pygbag"""
     print("Building Chain Hockey for web...")
@@ -21,7 +23,7 @@ def build_web():
     
     # Build command
     # pygbag will compile main.py and create web build
-    cmd = [sys.executable, "-m", "pygbag", "main.py"]
+    cmd = [sys.executable, "-m", "pygbag", "--build", "main.py"]
     
     try:
         subprocess.run(cmd, check=True)
