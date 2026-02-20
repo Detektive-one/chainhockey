@@ -10,4 +10,7 @@ __pycache__/
 
 config.json
 build/
-dist/
+dist/-e 
+# Environment files
+*.env
+*.env.*
