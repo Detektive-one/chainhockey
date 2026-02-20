@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Chain Hockey - Mobile</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #000;
+            overflow: hidden;
+            touch-action: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+        
+        #game-container {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        canvas {
+            display: block;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container"></div>
+    
+    <!-- Phaser 3 from CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+    
+    <!-- Game files -->
+    <script src="game/config.js"></script>
+    <script src="game/managers/TouchInputManager.js"></script>
+    <script src="game/objects/Puck.js"></script>
+    <script src="game/objects/Striker.js"></script>
+    <script src="game/objects/Hammer.js"></script>
+    <script src="game/objects/ChainSystem.js"></script>
+    <script src="game/objects/Goal.js"></script>
+    <script src="game/scenes/BootScene.js"></script>
+    <script src="game/scenes/MainMenuScene.js"></script>
+    <script src="game/scenes/GameScene.js"></script>
+    <script src="game/scenes/PauseScene.js"></script>
+    <script src="game/scenes/GameOverScene.js"></script>
+    <script src="game/main.js"></script>
+</body>
+</html>
