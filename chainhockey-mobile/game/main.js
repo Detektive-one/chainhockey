@@ -5,6 +5,9 @@ const phaserConfig = {
     height: GameConfig.GAME_HEIGHT,
     parent: 'game-container',
     backgroundColor: '#000000',
+    input: {
+        activePointers: 4  // Support up to 4 simultaneous touch points
+    },
     physics: {
         default: 'matter',
         matter: {
@@ -33,12 +36,21 @@ const phaserConfig = {
 window.addEventListener('load', () => {
     // Create game and store globally
     window.game = new Phaser.Game(phaserConfig);
-    
-    // Prevent default touch behaviors
+
+    // Prevent default touch behaviors so the browser doesn't scroll/zoom
+    // These must be non-passive to call preventDefault()
+    document.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+    }, { passive: false });
+
     document.addEventListener('touchmove', (e) => {
         e.preventDefault();
     }, { passive: false });
-    
+
+    document.addEventListener('touchend', (e) => {
+        e.preventDefault();
+    }, { passive: false });
+
     // Lock to landscape on mobile
     if (screen.orientation && screen.orientation.lock) {
         screen.orientation.lock('landscape').catch((err) => {

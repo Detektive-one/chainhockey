@@ -25,16 +25,16 @@ const mimeTypes = {
 
 const server = http.createServer((req, res) => {
     console.log(`${req.method} ${req.url}`);
-    
+
     // Default to index.html
     let filePath = '.' + req.url;
     if (filePath === './') {
         filePath = './index.html';
     }
-    
+
     const extname = String(path.extname(filePath)).toLowerCase();
     const contentType = mimeTypes[extname] || 'application/octet-stream';
-    
+
     fs.readFile(filePath, (error, content) => {
         if (error) {
             if (error.code === 'ENOENT') {
@@ -51,8 +51,19 @@ const server = http.createServer((req, res) => {
     });
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
+    const { networkInterfaces } = require('os');
+    const nets = networkInterfaces();
+    let localIP = 'YOUR_LOCAL_IP';
+    for (const name of Object.keys(nets)) {
+        for (const net of nets[name]) {
+            if (net.family === 'IPv4' && !net.internal) {
+                localIP = net.address;
+                break;
+            }
+        }
+    }
     console.log(`🎮 Chain Hockey server running at http://localhost:${PORT}/`);
-    console.log(`📱 Mobile access: http://YOUR_LOCAL_IP:${PORT}/`);
+    console.log(`📱 Mobile access: http://${localIP}:${PORT}/`);
     console.log(`Press Ctrl+C to stop`);
 });
